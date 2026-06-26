@@ -1,0 +1,46 @@
+{
+  "summary": "Ran 32 backend regression tests via the external preview URL. 31 passed, 1 failed (brute-force lockout does not engage behind ingress because request.client.host varies per request). All other contracts — health, public forms (contact/newsletter/quote/calculator), public blog/careers reads, auth register/login/me/logout, duplicate-email block, invalid creds 401, admin gating across 5 admin GET endpoints (401 unauth / 403 client / 200 admin), Blog CMS create+update+delete with public side-effects + unique-slug 400 + unpublish hides post, Careers CMS CRUD — all work as specified. Admin user nvplabs@gmail.com / NVPLabs@2025 is correctly seeded and authenticates.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/auth/login",
+        "issue": "Brute-force lockout never triggers behind the public ingress. Identifier is `ip:email` using request.client.host, but the upstream proxy IP varies per request (verified: 6+ wrong logins all return 401 via preview URL, while same flow returns 429 on the 6th attempt against http://localhost:8001). This silently disables the documented lockout in production-shaped environments.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_nvplabs_backend.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix brute-force identifier in /app/backend/server.py login(): derive IP from X-Forwarded-For (first hop) when present, e.g. `ip = (request.headers.get('x-forwarded-for') or request.client.host or 'unknown').split(',')[0].strip()`, OR key the identifier on email only. Also consider running uvicorn with --forwarded-allow-ips='*' / --proxy-headers so request.client reflects the real client.",
+    "Optional: add unit/integration coverage for the lockout path so this regression is caught."
+  ],
+  "critical_code_review_comments": [
+    "server.py login(): request.client.host is unreliable behind a reverse proxy / k8s ingress. Use X-Forwarded-For or drop IP from the lockout key.",
+    "server.py uses on_event('startup') which is deprecated in modern FastAPI; consider migrating to lifespan handlers.",
+    "Auth cookies are set with secure=False. For a production preview served over HTTPS this should be True (and SameSite='none' if cross-site is needed). Currently fine for same-origin preview, but flag before launch.",
+    "CORS allow_origins defaults to '*' while allow_credentials=True — browsers will reject credentialed requests with wildcard origin. Set explicit origins for production.",
+    "Public blog detail returns 404 only for unpublished/missing posts (good), but admin PUT /admin/blog/{id} does not validate slug uniqueness on rename — could create duplicate slugs via update. Add a uniqueness check or rely on the unique index (currently the index will raise a 500 on conflict instead of a 400)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_nvplabs_backend.py"
+  ],
+  "success_rate": {
+    "backend": "96.9% (31/32)",
+    "frontend": "not tested (backend-only request)"
+  },
+  "test_credentials": "admin: nvplabs@gmail.com / NVPLabs@2025 (verified working)",
+  "seed_data_creation": "Tests create transient TEST_-prefixed users, leads, newsletter rows, blog posts and career jobs. Blog & career CRUD tests clean up after themselves. Newsletter / contact / quote / calculator rows and registered users are left in the DB by design (no admin delete endpoint).",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Use /app/backend/tests/test_nvplabs_backend.py as the regression entrypoint. BASE_URL is read from REACT_APP_BACKEND_URL. After main agent fixes brute-force, re-run only TestBruteForce::test_lockout_after_5_failures (it registers a fresh user each run so no manual cleanup is required). Slugs in admin blog tests must be slug-safe (no underscores) because the server slugifies non-[a-z0-9-] characters.",
+  "rca of the issue": "RCA — Brute-force lockout bypass: In /app/backend/server.py login() (lines 200-213), the rate-limit identifier is built as `f\"{request.client.host}:{email}\"`. Behind the k8s ingress / preview proxy each request to /api/auth/login can land on a different upstream connection, so request.client.host changes per request. Each failed attempt therefore upserts a distinct login_attempts document with count=1, and the `count >= 5` guard never fires. Reproduction: register a user, hit POST /api/auth/login with wrong password 6+ times via REACT_APP_BACKEND_URL — every response is 401 (expected: 6th → 429). Same flow against http://localhost:8001 correctly returns 429 on the 6th attempt. Mitigation: (1) read client IP from X-Forwarded-For; (2) or simply drop IP from the identifier and rate-limit per-email; (3) start uvicorn with --proxy-headers and --forwarded-allow-ips so request.client.host reflects the real client. Option (2) is the simplest and matches the test expectation."
+}
