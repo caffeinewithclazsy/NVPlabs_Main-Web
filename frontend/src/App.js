@@ -6,6 +6,7 @@ import { AuthProvider } from "./lib/auth";
 import { Navbar } from "./components/Navbar";
 import { Footer } from "./components/Footer";
 import { WhatsAppButton, CookieConsent, LoadingScreen } from "./components/FloatingElements";
+import { CursorFollower } from "./components/CursorFollower";
 import "./App.css";
 
 import Home from "./pages/Home";
@@ -66,6 +67,7 @@ function AppShell() {
       <Footer />
       <WhatsAppButton />
       <CookieConsent />
+      <CursorFollower />
     </>
   );
 }

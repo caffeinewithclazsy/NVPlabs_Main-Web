@@ -229,14 +229,49 @@ body {
 
 /* Animated gradient bg */
 .gradient-bg {
-    background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(225, 6, 0, 0.15), transparent),
-                radial-gradient(ellipse 60% 40% at 80% 50%, rgba(225, 6, 0, 0.08), transparent),
-                radial-gradient(ellipse 60% 40% at 20% 80%, rgba(225, 6, 0, 0.05), transparent);
+    background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(225, 6, 0, 0.18), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 50%, rgba(225, 6, 0, 0.10), transparent),
+                radial-gradient(ellipse 60% 40% at 20% 80%, rgba(225, 6, 0, 0.06), transparent);
 }
 .dark .gradient-bg {
-    background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(225, 6, 0, 0.25), transparent),
-                radial-gradient(ellipse 60% 40% at 80% 50%, rgba(225, 6, 0, 0.12), transparent),
-                radial-gradient(ellipse 60% 40% at 20% 80%, rgba(225, 6, 0, 0.08), transparent);
+    background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(225, 6, 0, 0.30), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 50%, rgba(225, 6, 0, 0.14), transparent),
+                radial-gradient(ellipse 60% 40% at 20% 80%, rgba(225, 6, 0, 0.10), transparent);
+}
+
+/* Aurora mesh */
+.aurora {
+    position: absolute;
+    inset: -20%;
+    background:
+        radial-gradient(ellipse 35% 25% at 20% 30%, rgba(225, 6, 0, 0.22), transparent 60%),
+        radial-gradient(ellipse 40% 30% at 80% 20%, rgba(225, 6, 0, 0.18), transparent 60%),
+        radial-gradient(ellipse 50% 30% at 60% 80%, rgba(255, 255, 255, 0.12), transparent 60%);
+    filter: blur(40px);
+    opacity: 0.7;
+    animation: aurora-shift 22s ease-in-out infinite;
+}
+.dark .aurora {
+    background:
+        radial-gradient(ellipse 35% 25% at 20% 30%, rgba(225, 6, 0, 0.35), transparent 60%),
+        radial-gradient(ellipse 40% 30% at 80% 20%, rgba(225, 6, 0, 0.28), transparent 60%),
+        radial-gradient(ellipse 50% 30% at 60% 80%, rgba(255, 255, 255, 0.06), transparent 60%);
+    opacity: 1;
+}
+@keyframes aurora-shift {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    33% { transform: translate(-3%, 2%) rotate(8deg); }
+    66% { transform: translate(2%, -3%) rotate(-6deg); }
+}
+
+/* Conic accent */
+.conic-accent {
+    background: conic-gradient(from 180deg at 50% 50%, transparent 0deg, rgba(225, 6, 0, 0.15) 90deg, transparent 180deg, rgba(225, 6, 0, 0.08) 270deg, transparent 360deg);
+    filter: blur(60px);
+    animation: spin-slow 30s linear infinite;
+}
+@keyframes spin-slow {
+    to { transform: rotate(360deg); }
 }
 
 /* Grid pattern */
@@ -366,10 +401,46 @@ body {
     position: fixed;
     pointer-events: none;
     z-index: 9999;
+    will-change: transform;
     mix-blend-mode: difference;
-    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), width 0.2s, height 0.2s;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (hover: none) {
     .custom-cursor { display: none; }
+}
+
+/* Section divider */
+.section-divider {
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(125, 125, 125, 0.2), transparent);
+}
+
+/* Spotlight on hover */
+.spotlight {
+    position: relative;
+    overflow: hidden;
+}
+.spotlight::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle 220px at var(--mx, 50%) var(--my, 50%), rgba(225, 6, 0, 0.12), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+}
+.spotlight:hover::after { opacity: 1; }
+
+/* Subtle noise */
+.noise {
+    position: relative;
+}
+.noise::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    pointer-events: none;
+    opacity: 0.4;
+    mix-blend-mode: overlay;
 }

@@ -49,6 +49,11 @@ function Hero() {
       <motion.div style={{ y, opacity }} className="absolute inset-0 -z-10">
         <div className="absolute inset-0 grid-pattern" />
         <div className="absolute inset-0 gradient-bg" />
+        <div className="absolute inset-0 noise" />
+        {/* Aurora mesh */}
+        <div className="aurora absolute inset-0 pointer-events-none" />
+        {/* Conic accent in the corner */}
+        <div className="conic-accent absolute -top-1/3 -right-1/4 h-[700px] w-[700px] rounded-full opacity-60" />
         {/* Glow particles that follow mouse */}
         <div
           className="absolute h-[600px] w-[600px] rounded-full bg-nvp-red/20 blur-[140px] particle-1"
@@ -745,10 +750,13 @@ function CTASection() {
 }
 
 /* =============== HOME =============== */
+import { LogoMarquee } from "../components/LogoMarquee";
+
 export default function Home() {
   return (
     <div className="overflow-x-hidden">
       <Hero />
+      <LogoMarquee />
       <ServicesSection />
       <WebsiteCategoriesSection />
       <EcommerceSection />

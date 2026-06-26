@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Menu, X, Sun, Moon } from "lucide-react";
+import { Menu, X, Sun, Moon, Monitor } from "lucide-react";
 import { LiquidButton } from "./LiquidButton";
 import { Logo } from "./Logo";
 import { useTheme } from "../lib/theme";
@@ -10,7 +10,7 @@ import { cn } from "../lib/utils";
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
-  const { theme, toggle } = useTheme();
+  const { theme, toggle, isAuto } = useTheme();
   const location = useLocation();
 
   useEffect(() => {
@@ -60,12 +60,20 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           <button
             onClick={toggle}
-            aria-label="Toggle theme"
+            aria-label={isAuto ? `Theme: following system (${theme})` : `Theme: ${theme}`}
+            title={isAuto ? `Following system • ${theme}` : `Manual • ${theme}`}
             data-testid="theme-toggle"
-            className="liquid-glass-btn lgb-light h-10 w-10 rounded-full inline-flex items-center justify-center"
+            className="liquid-glass-btn lgb-light h-10 w-10 rounded-full inline-flex items-center justify-center relative"
           >
-            <Sun className="h-4 w-4 hidden dark:block" strokeWidth={1.75} />
-            <Moon className="h-4 w-4 block dark:hidden" strokeWidth={1.75} />
+            {isAuto ? (
+              <Monitor className="h-4 w-4" strokeWidth={1.75} />
+            ) : (
+              <>
+                <Sun className="h-4 w-4 hidden dark:block" strokeWidth={1.75} />
+                <Moon className="h-4 w-4 block dark:hidden" strokeWidth={1.75} />
+              </>
+            )}
+            {isAuto && <span className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-nvp-red" />}
           </button>
           <Link to="/contact" className="hidden md:inline-flex" data-testid="nav-get-started">
             <LiquidButton variant="primary" size="md">
