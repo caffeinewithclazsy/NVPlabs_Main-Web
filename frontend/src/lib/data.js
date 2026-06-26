@@ -167,12 +167,16 @@ export const NAV_LINKS = [
   { to: "/", label: "Home" },
   { to: "/services", label: "Services" },
   { to: "/portfolio", label: "Portfolio" },
-  { to: "/products", label: "Products" },
   { to: "/pricing", label: "Pricing" },
   { to: "/about", label: "About" },
+  { to: "/contact", label: "Contact" },
+];
+
+// Extra links — shown in mobile menu and footer only
+export const SECONDARY_LINKS = [
+  { to: "/products", label: "Products" },
   { to: "/careers", label: "Careers" },
   { to: "/blog", label: "Blog" },
-  { to: "/contact", label: "Contact" },
 ];
 
 export const COMPANY = {

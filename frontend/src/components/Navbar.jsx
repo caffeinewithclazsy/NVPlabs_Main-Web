@@ -5,7 +5,7 @@ import { LiquidButton } from "./LiquidButton";
 import { Logo } from "./Logo";
 import { useTheme } from "../lib/theme";
 import { useAuth } from "../lib/auth";
-import { NAV_LINKS } from "../lib/data";
+import { NAV_LINKS, SECONDARY_LINKS } from "../lib/data";
 import { cn } from "../lib/utils";
 
 export function Navbar() {
@@ -77,7 +77,7 @@ export function Navbar() {
             )}
             {isAuto && <span className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-nvp-red" />}
           </button>
-          <Link to="/contact" className="hidden md:inline-flex" data-testid="nav-get-started">
+          <Link to="/contact" className="hidden sm:inline-flex" data-testid="nav-get-started">
             <LiquidButton variant="primary" size="sm">
               Get Started
             </LiquidButton>
@@ -85,29 +85,26 @@ export function Navbar() {
           {user ? (
             <Link
               to={user.role === "admin" ? "/admin" : "/dashboard"}
-              className="hidden md:inline-flex"
+              aria-label="Dashboard"
+              title="Dashboard"
               data-testid="nav-dashboard"
+              className="liquid-glass-btn lgb-light h-10 w-10 rounded-full inline-flex items-center justify-center"
             >
-              <LiquidButton variant="glass" size="sm">
-                <LayoutDashboard className="h-3.5 w-3.5" strokeWidth={1.75} /> Dashboard
-              </LiquidButton>
+              <LayoutDashboard className="h-4 w-4" strokeWidth={1.75} />
             </Link>
           ) : (
-            <>
-              <Link to="/login" className="hidden xl:inline-flex" data-testid="nav-signin">
-                <LiquidButton variant="ghost" size="sm">
-                  <LogIn className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign In
-                </LiquidButton>
-              </Link>
-              <Link to="/register" className="hidden md:inline-flex" data-testid="nav-signup">
-                <LiquidButton variant="glass" size="sm">
-                  Sign Up
-                </LiquidButton>
-              </Link>
-            </>
+            <Link
+              to="/login"
+              aria-label="Sign in"
+              title="Sign in or sign up"
+              data-testid="nav-signin"
+              className="liquid-glass-btn lgb-light h-10 w-10 rounded-full inline-flex items-center justify-center"
+            >
+              <LogIn className="h-4 w-4" strokeWidth={1.75} />
+            </Link>
           )}
           <button
-            className="lg:hidden liquid-glass-btn lgb-light h-10 w-10 rounded-full inline-flex items-center justify-center"
+            className="md:hidden liquid-glass-btn lgb-light h-10 w-10 rounded-full inline-flex items-center justify-center"
             onClick={() => setOpen((v) => !v)}
             aria-label="Toggle menu"
             data-testid="mobile-menu-toggle"
@@ -119,9 +116,9 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="lg:hidden border-t border-foreground/5 bg-background/95 backdrop-blur-xl">
+        <div className="md:hidden border-t border-foreground/5 bg-background/95 backdrop-blur-xl">
           <div className="max-w-7xl mx-auto px-5 py-5 flex flex-col gap-1">
-            {NAV_LINKS.map((l) => (
+            {[...NAV_LINKS, ...SECONDARY_LINKS].map((l) => (
               <NavLink
                 key={l.to}
                 to={l.to}
@@ -148,18 +145,11 @@ export function Navbar() {
                 </LiquidButton>
               </Link>
             ) : (
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <Link to="/login">
-                  <LiquidButton variant="ghost" className="w-full" data-testid="mobile-signin">
-                    Sign In
-                  </LiquidButton>
-                </Link>
-                <Link to="/register">
-                  <LiquidButton variant="glass" className="w-full" data-testid="mobile-signup">
-                    Sign Up
-                  </LiquidButton>
-                </Link>
-              </div>
+              <Link to="/login" className="mt-2">
+                <LiquidButton variant="glass" className="w-full" data-testid="mobile-signin">
+                  <LogIn className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign in
+                </LiquidButton>
+              </Link>
             )}
           </div>
         </div>
