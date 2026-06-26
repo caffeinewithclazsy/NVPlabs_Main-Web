@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Menu, X, Sun, Moon, Monitor } from "lucide-react";
+import { Menu, X, Sun, Moon, Monitor, LogIn, LayoutDashboard } from "lucide-react";
 import { LiquidButton } from "./LiquidButton";
 import { Logo } from "./Logo";
 import { useTheme } from "../lib/theme";
+import { useAuth } from "../lib/auth";
 import { NAV_LINKS } from "../lib/data";
 import { cn } from "../lib/utils";
 
@@ -11,6 +12,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const { theme, toggle, isAuto } = useTheme();
+  const { user } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
@@ -76,10 +78,34 @@ export function Navbar() {
             {isAuto && <span className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-nvp-red" />}
           </button>
           <Link to="/contact" className="hidden md:inline-flex" data-testid="nav-get-started">
-            <LiquidButton variant="primary" size="md">
+            <LiquidButton variant="primary" size="sm">
               Get Started
             </LiquidButton>
           </Link>
+          {user ? (
+            <Link
+              to={user.role === "admin" ? "/admin" : "/dashboard"}
+              className="hidden md:inline-flex"
+              data-testid="nav-dashboard"
+            >
+              <LiquidButton variant="glass" size="sm">
+                <LayoutDashboard className="h-3.5 w-3.5" strokeWidth={1.75} /> Dashboard
+              </LiquidButton>
+            </Link>
+          ) : (
+            <>
+              <Link to="/login" className="hidden xl:inline-flex" data-testid="nav-signin">
+                <LiquidButton variant="ghost" size="sm">
+                  <LogIn className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign In
+                </LiquidButton>
+              </Link>
+              <Link to="/register" className="hidden md:inline-flex" data-testid="nav-signup">
+                <LiquidButton variant="glass" size="sm">
+                  Sign Up
+                </LiquidButton>
+              </Link>
+            </>
+          )}
           <button
             className="lg:hidden liquid-glass-btn lgb-light h-10 w-10 rounded-full inline-flex items-center justify-center"
             onClick={() => setOpen((v) => !v)}
@@ -115,6 +141,26 @@ export function Navbar() {
                 Get Started
               </LiquidButton>
             </Link>
+            {user ? (
+              <Link to={user.role === "admin" ? "/admin" : "/dashboard"} className="mt-2">
+                <LiquidButton variant="glass" className="w-full" data-testid="mobile-dashboard">
+                  <LayoutDashboard className="h-3.5 w-3.5" strokeWidth={1.75} /> Dashboard
+                </LiquidButton>
+              </Link>
+            ) : (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Link to="/login">
+                  <LiquidButton variant="ghost" className="w-full" data-testid="mobile-signin">
+                    Sign In
+                  </LiquidButton>
+                </Link>
+                <Link to="/register">
+                  <LiquidButton variant="glass" className="w-full" data-testid="mobile-signup">
+                    Sign Up
+                  </LiquidButton>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}

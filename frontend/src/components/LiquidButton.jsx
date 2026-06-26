@@ -24,7 +24,7 @@ export const LiquidButton = forwardRef(function LiquidButton(
     <As
       ref={ref}
       className={cn(
-        "liquid-glass-btn inline-flex items-center justify-center gap-2 rounded-full font-display font-medium tracking-tight select-none",
+        "liquid-glass-btn inline-flex items-center justify-center gap-2 rounded-full font-display font-medium tracking-tight select-none whitespace-nowrap",
         sizes[size],
         variants[variant],
         className
