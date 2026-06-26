@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { LogOut, FileText, Mail, BarChart3, Calculator, Briefcase, Trash2, PenSquare, Plus, X, Folder, IndianRupee, ShoppingBag, Type } from "lucide-react";
+import { LogOut, FileText, Mail, BarChart3, Calculator, Briefcase, Trash2, PenSquare, Plus, X, Folder, IndianRupee, ShoppingBag, Type, Package } from "lucide-react";
 import { LiquidButton } from "../components/LiquidButton";
 import { useAuth } from "../lib/auth";
 import { api, formatApiError } from "../lib/api";
@@ -9,6 +9,7 @@ import { cn } from "../lib/utils";
 import { ProjectsPanel, PricingPanel, ProductsPanel, ContentPanel } from "./AdminPanels";
 
 const TABS = [
+  { key: "orders", label: "Orders", icon: Package },
   { key: "leads", label: "Leads", icon: Mail },
   { key: "newsletter", label: "Newsletter", icon: BarChart3 },
   { key: "calculator", label: "Calculator", icon: Calculator },
@@ -55,6 +56,7 @@ export default function Admin() {
       </div>
 
       {tab === "leads" && <LeadsPanel />}
+      {tab === "orders" && <OrdersPanel />}
       {tab === "newsletter" && <NewsletterPanel />}
       {tab === "calculator" && <CalculatorPanel />}
       {tab === "projects" && <ProjectsPanel />}
@@ -91,6 +93,52 @@ function LeadsPanel() {
           {l.budget && <div className="text-xs text-foreground/65">Budget: {l.budget}</div>}
           {l.subject && <div className="text-xs text-foreground/65">Subject: {l.subject}</div>}
           <p className="mt-2 text-sm text-foreground/75 whitespace-pre-line">{l.message || l.description}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function OrdersPanel() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const load = async () => { setLoading(true); try { const { data } = await api.get("/admin/orders"); setItems(data); } finally { setLoading(false); } };
+  useEffect(() => { load(); }, []);
+  const setStatus = async (id, status) => {
+    try { await api.put(`/admin/orders/${id}`, { status }); toast.success("Updated"); load(); }
+    catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+  const del = async (id) => {
+    if (!window.confirm("Delete this order?")) return;
+    try { await api.delete(`/admin/orders/${id}`); toast.success("Deleted"); load(); }
+    catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+  if (loading) return <div className="text-foreground/50 text-sm">Loading…</div>;
+  return (
+    <div className="space-y-3" data-testid="admin-orders">
+      {items.length === 0 && <div className="glass-card !p-6 text-center text-foreground/60">No orders yet.</div>}
+      {items.map((o) => (
+        <div key={o.id} className="glass-card !p-5">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="rounded-full bg-nvp-red/10 text-nvp-red text-[10px] uppercase tracking-wider font-mono font-semibold px-2 py-0.5">{o.status}</span>
+              <span className="font-display font-semibold text-sm">{o.product_name} × {o.quantity}</span>
+              <span className="text-xs text-foreground/55">{o.user_name} · {o.user_email}</span>
+              {o.phone && <span className="text-xs text-foreground/55">{o.phone}</span>}
+            </div>
+            <span className="text-xs text-foreground/50 font-mono">{new Date(o.created_at).toLocaleString()}</span>
+          </div>
+          <div className="text-xs text-foreground/65 mb-3">{o.product_price}</div>
+          {o.notes && <p className="text-sm text-foreground/75 whitespace-pre-line mb-3">{o.notes}</p>}
+          <div className="flex flex-wrap gap-2">
+            {["pending","confirmed","fulfilled","cancelled"].map((s) => (
+              <button key={s} onClick={() => setStatus(o.id, s)} className={cn(
+                "rounded-full px-3 py-1 text-[10px] uppercase tracking-wider font-mono border transition-all",
+                o.status === s ? "bg-nvp-red text-white border-nvp-red" : "bg-foreground/5 border-foreground/10 hover:bg-foreground/10"
+              )}>{s}</button>
+            ))}
+            <button onClick={() => del(o.id)} className="ml-auto rounded-full px-3 py-1 text-[10px] uppercase tracking-wider font-mono border border-foreground/10 hover:bg-nvp-red/10 hover:text-nvp-red hover:border-nvp-red/30 transition-all">Delete</button>
+          </div>
         </div>
       ))}
     </div>

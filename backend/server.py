@@ -178,6 +178,12 @@ class SiteContentIn(BaseModel):
     key: str = Field(min_length=1, max_length=120)
     value: str  # arbitrary text or JSON-encoded string
 
+class OrderIn(BaseModel):
+    product_id: str
+    quantity: int = Field(default=1, ge=1, le=99)
+    notes: Optional[str] = None
+    phone: Optional[str] = None
+
 # --- Auth dep ---
 async def get_current_user(request: Request) -> dict:
     token = request.cookies.get("access_token")
@@ -560,6 +566,61 @@ async def admin_site_content_delete(key: str, user: dict = Depends(require_admin
         raise HTTPException(status_code=404, detail="Key not found")
     return {"success": True}
 
+# --- Orders (client purchases) ---
+@api_router.post("/orders")
+async def create_order(payload: OrderIn, user: dict = Depends(get_current_user)):
+    product = await db.products.find_one({"id": payload.product_id, "published": True}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not available")
+    if not product.get("in_stock", True):
+        raise HTTPException(status_code=400, detail="Product is out of stock")
+    doc = {
+        "id": uid(),
+        "user_id": user["id"],
+        "user_email": user["email"],
+        "user_name": user["name"],
+        "product_id": product["id"],
+        "product_name": product["name"],
+        "product_price": product.get("price"),
+        "product_image": product.get("image"),
+        "quantity": payload.quantity,
+        "notes": payload.notes,
+        "phone": payload.phone,
+        "status": "pending",  # pending | confirmed | fulfilled | cancelled
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+    await db.orders.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@api_router.get("/orders")
+async def my_orders(user: dict = Depends(get_current_user)):
+    items = await db.orders.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return items
+
+@api_router.get("/admin/orders")
+async def admin_orders_list(user: dict = Depends(require_admin)):
+    items = await db.orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    return items
+
+class OrderStatusIn(BaseModel):
+    status: Literal["pending", "confirmed", "fulfilled", "cancelled"]
+
+@api_router.put("/admin/orders/{order_id}")
+async def admin_order_update(order_id: str, payload: OrderStatusIn, user: dict = Depends(require_admin)):
+    res = await db.orders.update_one({"id": order_id}, {"$set": {"status": payload.status, "updated_at": now_iso()}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return {"success": True}
+
+@api_router.delete("/admin/orders/{order_id}")
+async def admin_order_delete(order_id: str, user: dict = Depends(require_admin)):
+    res = await db.orders.delete_one({"id": order_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return {"success": True}
+
 # --- Startup ---
 @app.on_event("startup")
 async def startup_event():
@@ -574,6 +635,8 @@ async def startup_event():
     await db.pricing_plans.create_index("order")
     await db.products.create_index("order")
     await db.site_content.create_index("key", unique=True)
+    await db.orders.create_index("user_id")
+    await db.orders.create_index("created_at")
 
     # Seed admin
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@example.com").lower()
@@ -596,138 +659,7 @@ async def startup_event():
         )
         logging.info(f"Updated admin password for: {admin_email}")
 
-    # Seed initial blog posts and careers if empty
-    if await db.blog.count_documents({}) == 0:
-        await db.blog.insert_many([
-            {
-                "id": uid(),
-                "title": "The Future of Premium Software in 2026",
-                "slug": "future-of-premium-software-2026",
-                "excerpt": "How we craft software products that scale beautifully while staying performant, accessible, and a joy to use.",
-                "content": "At NVP Labs we believe premium software is about restraint. Every pixel, every microinteraction, every API call earns its place. In this piece we walk you through our approach to designing scalable architectures, delightful interfaces, and a culture of craft that powers everything we ship.",
-                "cover_image": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200",
-                "tags": ["product", "engineering", "design"],
-                "published": True,
-                "author": "NVP Labs Admin",
-                "created_at": now_iso(),
-                "updated_at": now_iso(),
-            },
-            {
-                "id": uid(),
-                "title": "Designing With Restraint: Lessons from Apple & Linear",
-                "slug": "designing-with-restraint",
-                "excerpt": "Whitespace is not empty — it's the canvas premium products are built on. A study of two iconic design systems.",
-                "content": "Restraint is the hardest discipline in product design. Apple and Linear have mastered the art of removing everything that doesn't serve the user. Here's what we've learned and how we apply it at NVP Labs.",
-                "cover_image": "https://images.unsplash.com/photo-1686061592689-312bbfb5c055?w=1200",
-                "tags": ["design", "ux"],
-                "published": True,
-                "author": "NVP Labs Admin",
-                "created_at": now_iso(),
-                "updated_at": now_iso(),
-            },
-            {
-                "id": uid(),
-                "title": "Shipping AI Products That Actually Help People",
-                "slug": "shipping-useful-ai-products",
-                "excerpt": "Beyond the hype: how we integrate AI into client products with measurable, human-centered outcomes.",
-                "content": "AI is only valuable when it removes friction or unlocks new capabilities for real users. Here's our playbook for building AI features that ship to production and stay there.",
-                "cover_image": "https://images.pexels.com/photos/5380618/pexels-photo-5380618.jpeg?w=1200",
-                "tags": ["ai", "engineering"],
-                "published": True,
-                "author": "NVP Labs Admin",
-                "created_at": now_iso(),
-                "updated_at": now_iso(),
-            },
-        ])
-
-    if await db.careers.count_documents({}) == 0:
-        await db.careers.insert_many([
-            {
-                "id": uid(),
-                "title": "Senior Full-Stack Engineer",
-                "department": "Engineering",
-                "location": "Remote / Ahmedabad",
-                "type": "Full-time",
-                "description": "Build premium products with React, Next.js, FastAPI and MongoDB. Own features end-to-end from design system to deployment.",
-                "requirements": ["5+ years full-stack experience", "Strong React + TypeScript", "Python or Node.js backend", "Product mindset"],
-                "salary_range": "Competitive + Equity",
-                "published": True,
-                "created_at": now_iso(),
-                "updated_at": now_iso(),
-            },
-            {
-                "id": uid(),
-                "title": "Product Designer",
-                "department": "Design",
-                "location": "Remote",
-                "type": "Full-time",
-                "description": "Craft world-class interfaces inspired by Apple, Linear and Vercel. Own end-to-end product design for client and internal projects.",
-                "requirements": ["3+ years product design", "Figma mastery", "Motion design fundamentals", "Strong portfolio"],
-                "salary_range": "Competitive",
-                "published": True,
-                "created_at": now_iso(),
-                "updated_at": now_iso(),
-            },
-            {
-                "id": uid(),
-                "title": "AI Engineer",
-                "department": "Engineering",
-                "location": "Remote",
-                "type": "Full-time",
-                "description": "Integrate LLMs and ML pipelines into customer-facing products. Work across OpenAI, Gemini, Claude and custom models.",
-                "requirements": ["2+ years ML/AI experience", "Python expert", "LLM integration experience", "Strong communication"],
-                "salary_range": "Competitive",
-                "published": True,
-                "created_at": now_iso(),
-                "updated_at": now_iso(),
-            },
-        ])
-
-    # Seed projects
-    if await db.projects.count_documents({}) == 0:
-        projects_seed = [
-            {"title": "Helio Analytics", "category": "Dashboards", "tech": ["Next.js", "FastAPI", "PostgreSQL"], "image": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200", "description": "Real-time analytics dashboard for a SaaS company. 300k+ daily events."},
-            {"title": "Coda Commerce", "category": "Ecommerce", "tech": ["Next.js", "Stripe", "MongoDB"], "image": "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200", "description": "Luxury fashion e-commerce with custom checkout and 0.8s LCP."},
-            {"title": "Nova AI Assistant", "category": "AI", "tech": ["React", "Python", "OpenAI"], "image": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200", "description": "AI customer support assistant trained on 50k internal docs."},
-            {"title": "Lumen Studio", "category": "Websites", "tech": ["Next.js", "Framer", "Sanity"], "image": "https://images.unsplash.com/photo-1517292987719-0369a794ec0f?w=1200", "description": "Award-winning agency portfolio with custom WebGL hero."},
-            {"title": "Pulse Health", "category": "Apps", "tech": ["Flutter", "Firebase", "HealthKit"], "image": "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=1200", "description": "Cross-platform health tracking app with 200k+ active users."},
-            {"title": "Vertex CRM", "category": "Dashboards", "tech": ["React", "Node.js", "PostgreSQL"], "image": "https://images.unsplash.com/photo-1686061592689-312bbfb5c055?w=1200", "description": "Enterprise CRM serving 500+ sales reps across 12 countries."},
-            {"title": "Atlas Hotels", "category": "Websites", "tech": ["Next.js", "Sanity", "Stripe"], "image": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200", "description": "Boutique hotel chain with integrated booking and CMS."},
-            {"title": "Cipher Trade", "category": "AI", "tech": ["Python", "FastAPI", "Gemini"], "image": "https://images.pexels.com/photos/5380618/pexels-photo-5380618.jpeg?w=1200", "description": "AI-powered trading signals platform with real-time alerts."},
-        ]
-        await db.projects.insert_many([
-            {"id": uid(), **p, "demo_url": None, "case_study_url": None, "featured": i < 3, "published": True, "order": i, "created_at": now_iso(), "updated_at": now_iso()}
-            for i, p in enumerate(projects_seed)
-        ])
-
-    # Seed pricing plans
-    if await db.pricing_plans.count_documents({}) == 0:
-        await db.pricing_plans.insert_many([
-            {"id": uid(), "name": "Starter", "price": "₹49,000", "period": "/project", "description": "Perfect for startups and landing pages.", "features": ["Up to 5 pages", "Responsive design", "Basic SEO", "Contact form", "1 month support", "Hosting setup"], "cta": "Start Project", "popular": False, "published": True, "order": 0, "created_at": now_iso(), "updated_at": now_iso()},
-            {"id": uid(), "name": "Professional", "price": "₹1,99,000", "period": "/project", "description": "For growing businesses ready to scale.", "features": ["Up to 20 pages", "Custom design system", "Advanced SEO + Analytics", "CMS integration", "3 months support", "API integrations", "Performance optimization", "Animations & micro-interactions"], "cta": "Most Popular", "popular": True, "published": True, "order": 1, "created_at": now_iso(), "updated_at": now_iso()},
-            {"id": uid(), "name": "Enterprise", "price": "Custom", "period": "", "description": "For ambitious products at scale.", "features": ["Unlimited pages", "Custom architecture", "Dedicated team", "12 months support", "SLA + monitoring", "Multi-region deployment", "Compliance & security audits", "Quarterly product reviews"], "cta": "Talk to Sales", "popular": False, "published": True, "order": 2, "created_at": now_iso(), "updated_at": now_iso()},
-        ])
-
-    # Seed products (our own SaaS / templates)
-    if await db.products.count_documents({}) == 0:
-        await db.products.insert_many([
-            {"id": uid(), "name": "Helio Cloud", "category": "Analytics", "price": "₹2,499/mo", "description": "Hosted SaaS analytics for product teams. From insight to action in one click.", "image": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900", "tag": "Live", "in_stock": True, "featured": True, "published": True, "order": 0, "created_at": now_iso(), "updated_at": now_iso()},
-            {"id": uid(), "name": "Coda Storefront", "category": "Commerce", "price": "₹14,999 one-time", "description": "Headless commerce starter — Next.js, Stripe, Sanity. Ship in days.", "image": "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=900", "tag": "Live", "in_stock": True, "featured": True, "published": True, "order": 1, "created_at": now_iso(), "updated_at": now_iso()},
-            {"id": uid(), "name": "Nova Assistant", "category": "AI", "price": "₹4,999/mo", "description": "Plug-and-play AI customer support that learns from your docs.", "image": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=900", "tag": "Beta", "in_stock": True, "featured": False, "published": True, "order": 2, "created_at": now_iso(), "updated_at": now_iso()},
-            {"id": uid(), "name": "Vertex CRM Lite", "category": "Sales", "price": "Coming Soon", "description": "Lightweight CRM for small teams. Pipeline, deals, contacts — done right.", "image": "https://images.unsplash.com/photo-1686061592689-312bbfb5c055?w=900", "tag": "Coming Soon", "in_stock": False, "featured": False, "published": True, "order": 3, "created_at": now_iso(), "updated_at": now_iso()},
-        ])
-
-    # Seed site content
-    if await db.site_content.count_documents({}) == 0:
-        await db.site_content.insert_many([
-            {"id": uid(), "key": "hero_kicker", "value": "Now booking projects for 2026", "created_at": now_iso(), "updated_at": now_iso()},
-            {"id": uid(), "key": "hero_title_line_1", "value": "Building Premium", "created_at": now_iso(), "updated_at": now_iso()},
-            {"id": uid(), "key": "hero_title_line_2", "value": "Digital Products", "created_at": now_iso(), "updated_at": now_iso()},
-            {"id": uid(), "key": "hero_title_line_3", "value": "That Scale.", "created_at": now_iso(), "updated_at": now_iso()},
-            {"id": uid(), "key": "hero_subtitle", "value": "We design, develop and deploy world-class websites, mobile applications, AI solutions and enterprise software.", "created_at": now_iso(), "updated_at": now_iso()},
-            {"id": uid(), "key": "cta_headline", "value": "Let's build something extraordinary.", "created_at": now_iso(), "updated_at": now_iso()},
-            {"id": uid(), "key": "cta_subtitle", "value": "Tell us about your idea — we'll come back within 24 hours with a clear plan.", "created_at": now_iso(), "updated_at": now_iso()},
-        ])
+    # No demo/test seeding — admin populates content via the CMS.
 
 # --- App config ---
 app.include_router(api_router)
@@ -735,7 +667,7 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origin_regex=r"https?://(localhost(:\d+)?|.*\.preview\.emergentagent\.com|.*\.emergentagent\.com)",
     allow_methods=["*"],
     allow_headers=["*"],
 )
