@@ -1,16 +1,21 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { LogOut, FileText, Mail, BarChart3, Calculator, Briefcase, Trash2, PenSquare, Plus, X } from "lucide-react";
+import { LogOut, FileText, Mail, BarChart3, Calculator, Briefcase, Trash2, PenSquare, Plus, X, Folder, IndianRupee, ShoppingBag, Type } from "lucide-react";
 import { LiquidButton } from "../components/LiquidButton";
 import { useAuth } from "../lib/auth";
 import { api, formatApiError } from "../lib/api";
 import { toast } from "sonner";
 import { cn } from "../lib/utils";
+import { ProjectsPanel, PricingPanel, ProductsPanel, ContentPanel } from "./AdminPanels";
 
 const TABS = [
   { key: "leads", label: "Leads", icon: Mail },
   { key: "newsletter", label: "Newsletter", icon: BarChart3 },
   { key: "calculator", label: "Calculator", icon: Calculator },
+  { key: "projects", label: "Projects", icon: Folder },
+  { key: "pricing", label: "Pricing", icon: IndianRupee },
+  { key: "products", label: "Products", icon: ShoppingBag },
+  { key: "content", label: "Content", icon: Type },
   { key: "blog", label: "Blog", icon: FileText },
   { key: "careers", label: "Careers", icon: Briefcase },
 ];
@@ -52,6 +57,10 @@ export default function Admin() {
       {tab === "leads" && <LeadsPanel />}
       {tab === "newsletter" && <NewsletterPanel />}
       {tab === "calculator" && <CalculatorPanel />}
+      {tab === "projects" && <ProjectsPanel />}
+      {tab === "pricing" && <PricingPanel />}
+      {tab === "products" && <ProductsPanel />}
+      {tab === "content" && <ContentPanel />}
       {tab === "blog" && <BlogPanel />}
       {tab === "careers" && <CareersPanel />}
     </div>

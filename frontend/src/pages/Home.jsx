@@ -14,6 +14,7 @@ import {
 } from "../lib/data";
 import { cn } from "../lib/utils";
 import { api, formatApiError } from "../lib/api";
+import { useApiList } from "../lib/useApi";
 import { toast } from "sonner";
 import { CostCalculatorModal } from "../components/CostCalculatorModal";
 
@@ -381,8 +382,9 @@ function TechStackSection() {
 /* =============== PORTFOLIO =============== */
 function PortfolioSection() {
   const [filter, setFilter] = useState("All");
+  const { data: projects } = useApiList("/projects", PORTFOLIO);
   const categories = ["All", "Websites", "Apps", "AI", "Ecommerce", "Dashboards"];
-  const filtered = filter === "All" ? PORTFOLIO : PORTFOLIO.filter((p) => p.category === filter);
+  const filtered = filter === "All" ? projects : projects.filter((p) => p.category === filter);
 
   return (
     <section id="portfolio" className="relative py-24 md:py-32" data-testid="portfolio-section">
@@ -413,14 +415,14 @@ function PortfolioSection() {
           <AnimatePresence mode="popLayout">
             {filtered.map((p, i) => (
               <motion.div
-                key={p.id}
+                key={p.id || p.title}
                 layout
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.5, delay: i * 0.05 }}
                 className="glass-card !p-0 overflow-hidden group cursor-pointer"
-                data-testid={`portfolio-card-${p.id}`}
+                data-testid={`portfolio-card-${i}`}
               >
                 <div className="relative aspect-[4/3] overflow-hidden">
                   <img
@@ -438,9 +440,9 @@ function PortfolioSection() {
                 </div>
                 <div className="p-6">
                   <h3 className="font-display font-semibold text-lg tracking-tight">{p.title}</h3>
-                  <p className="mt-1.5 text-sm text-foreground/60 leading-relaxed">{p.desc}</p>
+                  <p className="mt-1.5 text-sm text-foreground/60 leading-relaxed">{p.description || p.desc}</p>
                   <div className="mt-4 flex flex-wrap gap-1.5">
-                    {p.tech.map((t) => (
+                    {(p.tech || []).map((t) => (
                       <span key={t} className="text-[10px] font-mono uppercase tracking-wider text-foreground/50 border border-foreground/10 rounded-full px-2 py-0.5">{t}</span>
                     ))}
                   </div>
@@ -596,6 +598,7 @@ function TestimonialsSection() {
 
 /* =============== PRICING =============== */
 function PricingSection() {
+  const { data: plans } = useApiList("/pricing-plans", PRICING_PLANS);
   return (
     <section id="pricing" className="relative py-24 md:py-32" data-testid="pricing-section">
       <div className="max-w-7xl mx-auto px-5 md:px-8">
@@ -606,9 +609,9 @@ function PricingSection() {
           align="center"
         />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
-          {PRICING_PLANS.map((p, i) => (
+          {plans.map((p, i) => (
             <motion.div
-              key={p.name}
+              key={p.id || p.name}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -629,9 +632,9 @@ function PricingSection() {
                 <span className="font-display font-bold text-4xl tracking-tight">{p.price}</span>
                 <span className="text-sm text-foreground/50">{p.period}</span>
               </div>
-              <p className="mt-2 text-sm text-foreground/60">{p.desc}</p>
+              <p className="mt-2 text-sm text-foreground/60">{p.description || p.desc}</p>
               <ul className="mt-7 space-y-3 flex-1">
-                {p.features.map((f) => (
+                {(p.features || []).map((f) => (
                   <li key={f} className="flex items-start gap-2.5 text-sm">
                     <Check className="h-4 w-4 text-nvp-red shrink-0 mt-0.5" strokeWidth={2.5} />
                     <span className="text-foreground/75">{f}</span>

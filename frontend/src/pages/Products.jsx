@@ -1,16 +1,22 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ArrowRight, Sparkles, Zap, ShoppingBag, BarChart3, Bot } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { LiquidButton } from "../components/LiquidButton";
+import { useApiList } from "../lib/useApi";
 
-const PRODUCTS = [
-  { name: "Helio Cloud", desc: "Hosted SaaS analytics for product teams. From insight to action in one click.", icon: BarChart3, status: "Live", tag: "Analytics" },
-  { name: "Coda Storefront", desc: "Headless commerce starter — Next.js, Stripe, Sanity. Ship in days.", icon: ShoppingBag, status: "Live", tag: "Commerce" },
-  { name: "Nova Assistant", desc: "Plug-and-play AI customer support that learns from your docs.", icon: Bot, status: "Beta", tag: "AI" },
-  { name: "Vertex CRM Lite", desc: "Lightweight CRM for small teams. Pipeline, deals, contacts — done right.", icon: Zap, status: "Coming Soon", tag: "Sales" },
+const FALLBACK_PRODUCTS = [
+  { id: "f1", name: "Helio Cloud", category: "Analytics", price: "₹2,499/mo", description: "Hosted SaaS analytics for product teams.", image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900", tag: "Live" },
+  { id: "f2", name: "Coda Storefront", category: "Commerce", price: "₹14,999 one-time", description: "Headless commerce starter — Next.js, Stripe, Sanity.", image: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=900", tag: "Live" },
 ];
 
+function statusClass(tag) {
+  if (tag === "Live") return "bg-green-500/10 text-green-600 dark:text-green-400";
+  if (tag === "Beta") return "bg-nvp-red/10 text-nvp-red";
+  return "bg-foreground/5 text-foreground/60";
+}
+
 export default function Products() {
+  const { data: products } = useApiList("/products", FALLBACK_PRODUCTS);
   return (
     <div className="overflow-x-hidden">
       <section className="relative pt-36 pb-16 md:pt-44 md:pb-24 grid-pattern" data-testid="products-hero">
@@ -26,30 +32,33 @@ export default function Products() {
       </section>
 
       <section className="py-16 md:py-24">
-        <div className="max-w-7xl mx-auto px-5 md:px-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {PRODUCTS.map((p, i) => {
-            const Icon = p.icon;
-            return (
-              <motion.div key={p.name} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.06 }} className="glass-card !p-8" data-testid={`product-${i}`}>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-nvp-red/10 border border-nvp-red/20 inline-flex items-center justify-center">
-                    <Icon className="h-5 w-5 text-nvp-red" strokeWidth={1.5} />
-                  </div>
-                  <span className={`text-[10px] uppercase tracking-[0.2em] font-mono font-semibold rounded-full px-2.5 py-1 ${p.status === "Live" ? "bg-green-500/10 text-green-600 dark:text-green-400" : p.status === "Beta" ? "bg-nvp-red/10 text-nvp-red" : "bg-foreground/5 text-foreground/60"}`}>
-                    {p.status}
-                  </span>
+        <div className="max-w-7xl mx-auto px-5 md:px-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {products.map((p, i) => (
+            <motion.div key={p.id} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.05 }} className="glass-card !p-0 overflow-hidden group" data-testid={`product-${i}`}>
+              {p.image && (
+                <div className="relative aspect-[16/10] overflow-hidden">
+                  <img src={p.image} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                 </div>
-                <h3 className="mt-6 font-display font-bold text-2xl tracking-tight">{p.name}</h3>
-                <p className="mt-2 text-sm text-foreground/65 leading-relaxed">{p.desc}</p>
-                <div className="mt-6 flex items-center justify-between">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-foreground/50">{p.tag}</span>
+              )}
+              <div className="p-7">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] uppercase tracking-[0.2em] font-mono text-foreground/55 font-semibold">{p.category}</span>
+                  {p.tag && (
+                    <span className={`text-[10px] uppercase tracking-[0.2em] font-mono font-semibold rounded-full px-2.5 py-1 ${statusClass(p.tag)}`}>{p.tag}</span>
+                  )}
+                </div>
+                <h3 className="mt-3 font-display font-bold text-xl tracking-tight">{p.name}</h3>
+                <p className="mt-1.5 text-sm text-foreground/65 leading-relaxed">{p.description}</p>
+                <div className="mt-5 flex items-center justify-between">
+                  <span className="font-display font-bold text-base text-nvp-red">{p.price}</span>
                   <Link to="/contact" className="text-xs font-medium underline-link inline-flex items-center gap-1" data-testid={`product-cta-${i}`}>
                     Learn more <ArrowRight className="h-3 w-3" strokeWidth={2} />
                   </Link>
                 </div>
-              </motion.div>
-            );
-          })}
+              </div>
+            </motion.div>
+          ))}
         </div>
       </section>
 

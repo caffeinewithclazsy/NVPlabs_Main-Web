@@ -1,0 +1,39 @@
+{
+  "summary": "Backend-only test of NVP Labs admin CMS extension: Projects, Pricing Plans, Products, and Site Content CRUD plus public seed/visibility behavior. Added /app/backend/tests/test_cms_crud.py with 18 tests covering seeded public data, admin gating (401/403), full admin CRUD with httpOnly cookies, publish-flag hiding from public lists, pricing public sort by `order` ASC, site-content PUT upsert idempotency by key (no duplicates), and admin-create -> public-visible end-to-end. All 18 new tests pass. Full regression suite (50 tests total including prior test_nvplabs_backend.py) also fully green.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_cms_crud.py",
+    "/app/backend/tests/test_nvplabs_backend.py",
+    "/app/test_reports/pytest/iteration_3_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is ~690 lines and beginning to mix auth, models, public endpoints and CMS routes. Consider splitting into routers (auth.py, public.py, admin_cms.py) and a models module once it crosses ~700 lines.",
+    "_admin_crud_routes() registers closures inside a function — works, but pricing_plans collection uses underscore while the route slug is 'pricing-plans'. Mapping is correct but worth a short docstring.",
+    "Public /api/site-content returns a dict keyed by key — fine, but on duplicate keys (shouldn't happen due to unique index) the last write wins silently. Unique index on `key` is in place: good.",
+    "Admin POST/PUT for projects/pricing/products do not coerce `order` to int beyond Pydantic — fine because schema enforces int. No issue, just noting.",
+    "Cookies use secure=False (preview env). For production deployment, secure must be True over HTTPS; consider env-toggled flag.",
+    "No pagination on admin list endpoints (to_list(1000)). Acceptable for current scale; flag when collections grow."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_cms_crud.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (50/50 incl. 18/18 new CMS CRUD)",
+    "frontend": "not tested (backend-only per request)"
+  },
+  "test_credentials": "Admin: nvplabs@gmail.com / NVPLabs@2025 (seeded on startup, verified working).",
+  "seed_data_creation": "No new seed data created. Verified existing startup seeders: 8 projects, 3 pricing plans, 4 products, 7 site_content keys (including hero_kicker, hero_title_line_1, cta_headline).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Use REACT_APP_BACKEND_URL from /app/frontend/.env (https://nvp-premium-showcase.preview.emergentagent.com). Admin login sets httpOnly cookies — use requests.Session() and reuse across calls. All admin CRUD endpoints follow pattern: GET/POST /api/admin/{resource}, PUT/DELETE /api/admin/{resource}/{id}. Site-content is PUT-only upsert (no POST) keyed by `key`; DELETE uses /api/admin/site-content/{key}. Public lists filter by published=true; admin lists return everything. Public projects/products sort by (order ASC, created_at DESC); pricing-plans by (order ASC, created_at ASC). Tests clean up created records.",
+  "rca of the issue": "N/A — no failures."
+}

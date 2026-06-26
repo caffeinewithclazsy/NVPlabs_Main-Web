@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Check } from "lucide-react";
 import { LiquidButton } from "../components/LiquidButton";
 import { PRICING_PLANS, FAQ_ITEMS } from "../lib/data";
+import { useApiList } from "../lib/useApi";
 import { cn } from "../lib/utils";
 import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
@@ -10,6 +11,7 @@ import { Plus, Minus } from "lucide-react";
 
 export default function Pricing() {
   const [openFaq, setOpenFaq] = useState(0);
+  const { data: plans } = useApiList("/pricing-plans", PRICING_PLANS);
   return (
     <div className="overflow-x-hidden">
       <section className="relative pt-36 pb-12 md:pt-44 md:pb-16 grid-pattern" data-testid="pricing-hero">
@@ -24,14 +26,14 @@ export default function Pricing() {
 
       <section className="py-12 md:py-20">
         <div className="max-w-7xl mx-auto px-5 md:px-8 grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl">
-          {PRICING_PLANS.map((p, i) => (
-            <motion.div key={p.name} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: i * 0.08 }} className={cn("glass-card !p-8 relative flex flex-col", p.popular && "ring-1 ring-nvp-red/40 md:scale-[1.03]")} data-testid={`p-pricing-${p.name.toLowerCase()}`}>
+          {plans.map((p, i) => (
+            <motion.div key={p.id || p.name} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: i * 0.08 }} className={cn("glass-card !p-8 relative flex flex-col", p.popular && "ring-1 ring-nvp-red/40 md:scale-[1.03]")} data-testid={`p-pricing-${p.name.toLowerCase()}`}>
               {p.popular && (<div className="absolute -top-3 left-1/2 -translate-x-1/2"><span className="rounded-full bg-nvp-red text-white text-[10px] uppercase tracking-[0.2em] font-mono font-semibold px-3 py-1">Most Popular</span></div>)}
               <div className="text-[10px] uppercase tracking-[0.3em] font-mono font-semibold text-foreground/50">{p.name}</div>
               <div className="mt-4 flex items-baseline gap-1"><span className="font-display font-bold text-4xl tracking-tight">{p.price}</span><span className="text-sm text-foreground/50">{p.period}</span></div>
-              <p className="mt-2 text-sm text-foreground/60">{p.desc}</p>
+              <p className="mt-2 text-sm text-foreground/60">{p.description || p.desc}</p>
               <ul className="mt-7 space-y-3 flex-1">
-                {p.features.map((f) => (
+                {(p.features || []).map((f) => (
                   <li key={f} className="flex items-start gap-2.5 text-sm"><Check className="h-4 w-4 text-nvp-red shrink-0 mt-0.5" strokeWidth={2.5} /><span className="text-foreground/75">{f}</span></li>
                 ))}
               </ul>

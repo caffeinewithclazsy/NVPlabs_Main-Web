@@ -138,6 +138,45 @@ class CareerIn(BaseModel):
     salary_range: Optional[str] = None
     published: bool = True
 
+class ProjectIn(BaseModel):
+    title: str
+    category: str  # Websites | Apps | AI | Ecommerce | Dashboards
+    description: str
+    image: str
+    tech: List[str] = []
+    demo_url: Optional[str] = None
+    case_study_url: Optional[str] = None
+    featured: bool = False
+    published: bool = True
+    order: int = 0
+
+class PricingPlanIn(BaseModel):
+    name: str
+    price: str
+    period: str = ""
+    description: str
+    features: List[str] = []
+    cta: str = "Get started"
+    popular: bool = False
+    published: bool = True
+    order: int = 0
+
+class ProductIn(BaseModel):
+    name: str
+    category: str
+    price: str
+    description: str
+    image: str
+    tag: Optional[str] = None  # Live | Beta | Coming Soon
+    in_stock: bool = True
+    featured: bool = False
+    published: bool = True
+    order: int = 0
+
+class SiteContentIn(BaseModel):
+    key: str = Field(min_length=1, max_length=120)
+    value: str  # arbitrary text or JSON-encoded string
+
 # --- Auth dep ---
 async def get_current_user(request: Request) -> dict:
     token = request.cookies.get("access_token")
@@ -303,6 +342,27 @@ async def public_careers_list():
     items = await db.careers.find({"published": True}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return items
 
+# Public projects / pricing / products / site content
+@api_router.get("/projects")
+async def public_projects():
+    items = await db.projects.find({"published": True}, {"_id": 0}).sort([("order", 1), ("created_at", -1)]).to_list(500)
+    return items
+
+@api_router.get("/pricing-plans")
+async def public_pricing_plans():
+    items = await db.pricing_plans.find({"published": True}, {"_id": 0}).sort([("order", 1), ("created_at", 1)]).to_list(50)
+    return items
+
+@api_router.get("/products")
+async def public_products():
+    items = await db.products.find({"published": True}, {"_id": 0}).sort([("order", 1), ("created_at", -1)]).to_list(500)
+    return items
+
+@api_router.get("/site-content")
+async def public_site_content():
+    items = await db.site_content.find({}, {"_id": 0}).to_list(500)
+    return {it["key"]: it["value"] for it in items}
+
 # --- Admin endpoints ---
 @api_router.get("/admin/leads")
 async def admin_leads(user: dict = Depends(require_admin)):
@@ -378,6 +438,68 @@ async def admin_careers_delete(job_id: str, user: dict = Depends(require_admin))
         raise HTTPException(status_code=404, detail="Job not found")
     return {"success": True}
 
+# Generic admin CRUD helper for projects / pricing-plans / products
+def _admin_crud_routes(collection_name: str, schema, slug: str, name: str):
+    @api_router.get(f"/admin/{slug}")
+    async def _list(user: dict = Depends(require_admin)):
+        items = await db[collection_name].find({}, {"_id": 0}).sort([("order", 1), ("created_at", -1)]).to_list(1000)
+        return items
+
+    @api_router.post(f"/admin/{slug}")
+    async def _create(payload: schema, user: dict = Depends(require_admin)):
+        doc = {"id": uid(), **payload.model_dump(), "created_at": now_iso(), "updated_at": now_iso()}
+        await db[collection_name].insert_one(doc)
+        doc.pop("_id", None)
+        return doc
+
+    @api_router.put(f"/admin/{slug}/{{item_id}}")
+    async def _update(item_id: str, payload: schema, user: dict = Depends(require_admin)):
+        update = {**payload.model_dump(), "updated_at": now_iso()}
+        res = await db[collection_name].update_one({"id": item_id}, {"$set": update})
+        if res.matched_count == 0:
+            raise HTTPException(status_code=404, detail=f"{name} not found")
+        return {"success": True}
+
+    @api_router.delete(f"/admin/{slug}/{{item_id}}")
+    async def _delete(item_id: str, user: dict = Depends(require_admin)):
+        res = await db[collection_name].delete_one({"id": item_id})
+        if res.deleted_count == 0:
+            raise HTTPException(status_code=404, detail=f"{name} not found")
+        return {"success": True}
+
+    # Rename to avoid FastAPI duplicate operation_id warnings
+    _list.__name__ = f"admin_{slug.replace('-', '_')}_list"
+    _create.__name__ = f"admin_{slug.replace('-', '_')}_create"
+    _update.__name__ = f"admin_{slug.replace('-', '_')}_update"
+    _delete.__name__ = f"admin_{slug.replace('-', '_')}_delete"
+
+_admin_crud_routes("projects", ProjectIn, "projects", "Project")
+_admin_crud_routes("pricing_plans", PricingPlanIn, "pricing-plans", "Pricing plan")
+_admin_crud_routes("products", ProductIn, "products", "Product")
+
+# Site content (key-value upsert)
+@api_router.get("/admin/site-content")
+async def admin_site_content_list(user: dict = Depends(require_admin)):
+    items = await db.site_content.find({}, {"_id": 0}).sort("key", 1).to_list(500)
+    return items
+
+@api_router.put("/admin/site-content")
+async def admin_site_content_upsert(payload: SiteContentIn, user: dict = Depends(require_admin)):
+    key = payload.key.strip()
+    await db.site_content.update_one(
+        {"key": key},
+        {"$set": {"key": key, "value": payload.value, "updated_at": now_iso()}, "$setOnInsert": {"id": uid(), "created_at": now_iso()}},
+        upsert=True,
+    )
+    return {"success": True, "key": key}
+
+@api_router.delete("/admin/site-content/{key}")
+async def admin_site_content_delete(key: str, user: dict = Depends(require_admin)):
+    res = await db.site_content.delete_one({"key": key})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Key not found")
+    return {"success": True}
+
 # --- Startup ---
 @app.on_event("startup")
 async def startup_event():
@@ -388,6 +510,10 @@ async def startup_event():
     await db.leads.create_index("created_at")
     await db.blog.create_index("slug", unique=True)
     await db.login_attempts.create_index("identifier")
+    await db.projects.create_index("order")
+    await db.pricing_plans.create_index("order")
+    await db.products.create_index("order")
+    await db.site_content.create_index("key", unique=True)
 
     # Seed admin
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@example.com").lower()
@@ -495,6 +621,52 @@ async def startup_event():
                 "created_at": now_iso(),
                 "updated_at": now_iso(),
             },
+        ])
+
+    # Seed projects
+    if await db.projects.count_documents({}) == 0:
+        projects_seed = [
+            {"title": "Helio Analytics", "category": "Dashboards", "tech": ["Next.js", "FastAPI", "PostgreSQL"], "image": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200", "description": "Real-time analytics dashboard for a SaaS company. 300k+ daily events."},
+            {"title": "Coda Commerce", "category": "Ecommerce", "tech": ["Next.js", "Stripe", "MongoDB"], "image": "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200", "description": "Luxury fashion e-commerce with custom checkout and 0.8s LCP."},
+            {"title": "Nova AI Assistant", "category": "AI", "tech": ["React", "Python", "OpenAI"], "image": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200", "description": "AI customer support assistant trained on 50k internal docs."},
+            {"title": "Lumen Studio", "category": "Websites", "tech": ["Next.js", "Framer", "Sanity"], "image": "https://images.unsplash.com/photo-1517292987719-0369a794ec0f?w=1200", "description": "Award-winning agency portfolio with custom WebGL hero."},
+            {"title": "Pulse Health", "category": "Apps", "tech": ["Flutter", "Firebase", "HealthKit"], "image": "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=1200", "description": "Cross-platform health tracking app with 200k+ active users."},
+            {"title": "Vertex CRM", "category": "Dashboards", "tech": ["React", "Node.js", "PostgreSQL"], "image": "https://images.unsplash.com/photo-1686061592689-312bbfb5c055?w=1200", "description": "Enterprise CRM serving 500+ sales reps across 12 countries."},
+            {"title": "Atlas Hotels", "category": "Websites", "tech": ["Next.js", "Sanity", "Stripe"], "image": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200", "description": "Boutique hotel chain with integrated booking and CMS."},
+            {"title": "Cipher Trade", "category": "AI", "tech": ["Python", "FastAPI", "Gemini"], "image": "https://images.pexels.com/photos/5380618/pexels-photo-5380618.jpeg?w=1200", "description": "AI-powered trading signals platform with real-time alerts."},
+        ]
+        await db.projects.insert_many([
+            {"id": uid(), **p, "demo_url": None, "case_study_url": None, "featured": i < 3, "published": True, "order": i, "created_at": now_iso(), "updated_at": now_iso()}
+            for i, p in enumerate(projects_seed)
+        ])
+
+    # Seed pricing plans
+    if await db.pricing_plans.count_documents({}) == 0:
+        await db.pricing_plans.insert_many([
+            {"id": uid(), "name": "Starter", "price": "₹49,000", "period": "/project", "description": "Perfect for startups and landing pages.", "features": ["Up to 5 pages", "Responsive design", "Basic SEO", "Contact form", "1 month support", "Hosting setup"], "cta": "Start Project", "popular": False, "published": True, "order": 0, "created_at": now_iso(), "updated_at": now_iso()},
+            {"id": uid(), "name": "Professional", "price": "₹1,99,000", "period": "/project", "description": "For growing businesses ready to scale.", "features": ["Up to 20 pages", "Custom design system", "Advanced SEO + Analytics", "CMS integration", "3 months support", "API integrations", "Performance optimization", "Animations & micro-interactions"], "cta": "Most Popular", "popular": True, "published": True, "order": 1, "created_at": now_iso(), "updated_at": now_iso()},
+            {"id": uid(), "name": "Enterprise", "price": "Custom", "period": "", "description": "For ambitious products at scale.", "features": ["Unlimited pages", "Custom architecture", "Dedicated team", "12 months support", "SLA + monitoring", "Multi-region deployment", "Compliance & security audits", "Quarterly product reviews"], "cta": "Talk to Sales", "popular": False, "published": True, "order": 2, "created_at": now_iso(), "updated_at": now_iso()},
+        ])
+
+    # Seed products (our own SaaS / templates)
+    if await db.products.count_documents({}) == 0:
+        await db.products.insert_many([
+            {"id": uid(), "name": "Helio Cloud", "category": "Analytics", "price": "₹2,499/mo", "description": "Hosted SaaS analytics for product teams. From insight to action in one click.", "image": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900", "tag": "Live", "in_stock": True, "featured": True, "published": True, "order": 0, "created_at": now_iso(), "updated_at": now_iso()},
+            {"id": uid(), "name": "Coda Storefront", "category": "Commerce", "price": "₹14,999 one-time", "description": "Headless commerce starter — Next.js, Stripe, Sanity. Ship in days.", "image": "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=900", "tag": "Live", "in_stock": True, "featured": True, "published": True, "order": 1, "created_at": now_iso(), "updated_at": now_iso()},
+            {"id": uid(), "name": "Nova Assistant", "category": "AI", "price": "₹4,999/mo", "description": "Plug-and-play AI customer support that learns from your docs.", "image": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=900", "tag": "Beta", "in_stock": True, "featured": False, "published": True, "order": 2, "created_at": now_iso(), "updated_at": now_iso()},
+            {"id": uid(), "name": "Vertex CRM Lite", "category": "Sales", "price": "Coming Soon", "description": "Lightweight CRM for small teams. Pipeline, deals, contacts — done right.", "image": "https://images.unsplash.com/photo-1686061592689-312bbfb5c055?w=900", "tag": "Coming Soon", "in_stock": False, "featured": False, "published": True, "order": 3, "created_at": now_iso(), "updated_at": now_iso()},
+        ])
+
+    # Seed site content
+    if await db.site_content.count_documents({}) == 0:
+        await db.site_content.insert_many([
+            {"id": uid(), "key": "hero_kicker", "value": "Now booking projects for 2026", "created_at": now_iso(), "updated_at": now_iso()},
+            {"id": uid(), "key": "hero_title_line_1", "value": "Building Premium", "created_at": now_iso(), "updated_at": now_iso()},
+            {"id": uid(), "key": "hero_title_line_2", "value": "Digital Products", "created_at": now_iso(), "updated_at": now_iso()},
+            {"id": uid(), "key": "hero_title_line_3", "value": "That Scale.", "created_at": now_iso(), "updated_at": now_iso()},
+            {"id": uid(), "key": "hero_subtitle", "value": "We design, develop and deploy world-class websites, mobile applications, AI solutions and enterprise software.", "created_at": now_iso(), "updated_at": now_iso()},
+            {"id": uid(), "key": "cta_headline", "value": "Let's build something extraordinary.", "created_at": now_iso(), "updated_at": now_iso()},
+            {"id": uid(), "key": "cta_subtitle", "value": "Tell us about your idea — we'll come back within 24 hours with a clear plan.", "created_at": now_iso(), "updated_at": now_iso()},
         ])
 
 # --- App config ---

@@ -4,12 +4,14 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ArrowUpRight, Play } from "lucide-react";
 import { LiquidButton } from "../components/LiquidButton";
 import { PORTFOLIO } from "../lib/data";
+import { useApiList } from "../lib/useApi";
 import { cn } from "../lib/utils";
 
 export default function Portfolio() {
   const [filter, setFilter] = useState("All");
+  const { data: projects } = useApiList("/projects", PORTFOLIO);
   const categories = ["All", "Websites", "Apps", "AI", "Ecommerce", "Dashboards"];
-  const filtered = filter === "All" ? PORTFOLIO : PORTFOLIO.filter((p) => p.category === filter);
+  const filtered = filter === "All" ? projects : projects.filter((p) => p.category === filter);
 
   return (
     <div className="overflow-x-hidden">
@@ -50,7 +52,7 @@ export default function Portfolio() {
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.5, delay: i * 0.06 }}
                   className="glass-card !p-0 overflow-hidden group cursor-pointer"
-                  data-testid={`pf-card-${p.id}`}
+                  data-testid={`pf-card-${i}`}
                 >
                   <div className="relative aspect-[16/10] overflow-hidden">
                     <img src={p.image} alt={p.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
@@ -64,21 +66,33 @@ export default function Portfolio() {
                     <div className="absolute bottom-5 left-5 right-5 text-white">
                       <h3 className="font-display font-bold text-xl md:text-2xl tracking-tight">{p.title}</h3>
                       <div className="mt-2 flex flex-wrap gap-1.5">
-                        {p.tech.map((t) => (
+                        {(p.tech || []).map((t) => (
                           <span key={t} className="text-[10px] font-mono uppercase tracking-wider text-white/80 border border-white/20 rounded-full px-2 py-0.5">{t}</span>
                         ))}
                       </div>
                     </div>
                   </div>
                   <div className="p-6">
-                    <p className="text-sm text-foreground/65 leading-relaxed">{p.desc}</p>
+                    <p className="text-sm text-foreground/65 leading-relaxed">{p.description || p.desc}</p>
                     <div className="mt-4 flex gap-3">
-                      <button className="inline-flex items-center gap-1.5 text-xs font-medium underline-link" data-testid={`pf-demo-${p.id}`}>
-                        <Play className="h-3 w-3" strokeWidth={2} /> Live Demo
-                      </button>
-                      <button className="inline-flex items-center gap-1.5 text-xs font-medium underline-link" data-testid={`pf-study-${p.id}`}>
-                        Case Study <ArrowUpRight className="h-3 w-3" strokeWidth={1.75} />
-                      </button>
+                      {p.demo_url ? (
+                        <a href={p.demo_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium underline-link" data-testid={`pf-demo-${i}`}>
+                          <Play className="h-3 w-3" strokeWidth={2} /> Live Demo
+                        </a>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/40">
+                          <Play className="h-3 w-3" strokeWidth={2} /> Live Demo
+                        </span>
+                      )}
+                      {p.case_study_url ? (
+                        <a href={p.case_study_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium underline-link" data-testid={`pf-study-${i}`}>
+                          Case Study <ArrowUpRight className="h-3 w-3" strokeWidth={1.75} />
+                        </a>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/40">
+                          Case Study <ArrowUpRight className="h-3 w-3" strokeWidth={1.75} />
+                        </span>
+                      )}
                     </div>
                   </div>
                 </motion.div>
