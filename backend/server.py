@@ -198,7 +198,8 @@ async def register(payload: RegisterIn, response: Response):
 @api_router.post("/auth/login", response_model=UserPublic)
 async def login(payload: LoginIn, request: Request, response: Response):
     email = payload.email.lower().strip()
-    ip = request.client.host if request.client else "unknown"
+    fwd = request.headers.get("x-forwarded-for")
+    ip = (fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "unknown"))
     identifier = f"{ip}:{email}"
 
     # Brute force check

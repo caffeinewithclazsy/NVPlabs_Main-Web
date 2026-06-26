@@ -1,0 +1,29 @@
+{
+  "summary": "Re-ran TestBruteForce::test_lockout_after_5_failures against the external REACT_APP_BACKEND_URL. The brute force lockout now works correctly: 5 failed login attempts return 401, and the 6th attempt returns 429 with the expected 'Too many failed attempts. Try again in 15 minutes.' message. The fix in /app/backend/server.py login() — deriving IP from X-Forwarded-For header first (falling back to request.client.host) — resolves the issue caused by ingress masking the real client IP.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_nvplabs_backend.py",
+    "/app/test_reports/pytest/iteration_2_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "X-Forwarded-For parsing takes the first IP in the chain which is the correct client IP per standard. Implementation is correct.",
+    "Consider also honoring X-Real-IP header as a secondary fallback for completeness, though not strictly required for current deployment."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (1/1 targeted test)", "frontend": "N/A (skipped per request)"},
+  "test_credentials": "Admin: nvplabs@gmail.com / NVPLabs@2025 (not needed for this specific test; test creates its own unique user)",
+  "seed_data_creation": "Test creates an ephemeral unique user via /api/auth/register, no impact on seeded data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration_1 had 31/32 passing; only TestBruteForce::test_lockout_after_5_failures was failing. Iteration_2 confirms the brute force lockout fix is working. Full suite at /app/backend/tests/test_nvplabs_backend.py should now be 32/32. The fix uses X-Forwarded-For (first IP) with fallback to request.client.host for the brute-force identifier.",
+  "rca of the issue": "RCA: Behind Kubernetes ingress, request.client.host resolves to the ingress/proxy IP which can vary per request (multiple ingress pods) or be the proxy's loopback. The brute-force identifier 'ip:email' therefore did not remain stable across the 5 failed attempts, so the counter never reached 5 for any single identifier and the 6th attempt was never throttled. Fix: read X-Forwarded-For header first and use the leftmost (original client) IP. Mitigation verified: test_lockout_after_5_failures now passes — 5x 401 followed by 429."
+}
