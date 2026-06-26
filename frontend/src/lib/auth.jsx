@@ -19,6 +19,11 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    // If returning from Google OAuth, skip the /me check — AuthCallback will exchange session_id first
+    if (typeof window !== "undefined" && window.location.hash.includes("session_id=")) {
+      setLoading(false);
+      return;
+    }
     refresh();
   }, [refresh]);
 

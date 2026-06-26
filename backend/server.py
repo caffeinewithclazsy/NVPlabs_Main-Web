@@ -11,6 +11,7 @@ import uuid
 import bcrypt
 import jwt
 import secrets
+import requests
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Literal
 
@@ -294,6 +295,65 @@ async def refresh_token(request: Request, response: Response):
         return {"message": "refreshed"}
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+# --- Google (Emergent-managed) OAuth bridge ---
+EMERGENT_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
+
+class GoogleSessionIn(BaseModel):
+    session_id: str
+
+@api_router.post("/auth/google-session", response_model=UserPublic)
+async def google_session(payload: GoogleSessionIn, response: Response):
+    """Exchange an Emergent OAuth session_id for our JWT cookies.
+
+    The user role is decided by env ADMIN_EMAIL — that email becomes admin,
+    everyone else gets the client role.
+    """
+    try:
+        r = requests.get(
+            EMERGENT_SESSION_URL,
+            headers={"X-Session-ID": payload.session_id},
+            timeout=10,
+        )
+    except requests.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"Auth provider unreachable: {e}")
+    if r.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid or expired Google session")
+    data = r.json()
+    email = (data.get("email") or "").lower().strip()
+    name = data.get("name") or email.split("@")[0]
+    if not email:
+        raise HTTPException(status_code=400, detail="Google account did not return an email")
+
+    admin_email = os.environ.get("ADMIN_EMAIL", "").lower().strip()
+    role = "admin" if admin_email and email == admin_email else "client"
+
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        user_id = existing["id"]
+        # Keep their role in sync (so if ADMIN_EMAIL changes, the seeded admin stays admin)
+        await db.users.update_one(
+            {"id": user_id},
+            {"$set": {"name": name, "role": role, "auth_provider": "google"}},
+        )
+        created_at = existing["created_at"]
+    else:
+        user_id = uid()
+        created_at = now_iso()
+        await db.users.insert_one({
+            "id": user_id,
+            "email": email,
+            "name": name,
+            "role": role,
+            "auth_provider": "google",
+            "password_hash": None,
+            "created_at": created_at,
+        })
+
+    access = create_access_token(user_id, email, role)
+    refresh = create_refresh_token(user_id)
+    set_auth_cookies(response, access, refresh)
+    return UserPublic(id=user_id, email=email, name=name, role=role, created_at=created_at)
 
 # --- Public lead endpoints ---
 @api_router.post("/contact")

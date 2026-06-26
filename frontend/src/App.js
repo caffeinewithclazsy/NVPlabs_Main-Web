@@ -19,6 +19,7 @@ import Careers from "./pages/Careers";
 import { Blog, BlogPost } from "./pages/Blog";
 import Contact from "./pages/Contact";
 import { Login, Register } from "./pages/Auth";
+import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 
@@ -59,6 +60,7 @@ function AppShell() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />

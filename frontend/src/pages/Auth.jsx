@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { LiquidButton } from "../components/LiquidButton";
+import { GoogleSignInButton } from "../components/GoogleSignInButton";
 import { Logo } from "../components/Logo";
 import { useAuth } from "../lib/auth";
 import { formatApiError } from "../lib/api";
@@ -39,8 +40,18 @@ export function Login() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="glass-card !p-8 md:!p-10 w-full max-w-md">
         <Link to="/" className="inline-block mb-7"><Logo size="md" /></Link>
         <h1 className="font-display font-bold text-2xl md:text-3xl tracking-tight">Welcome back.</h1>
-        <p className="mt-1.5 text-sm text-foreground/60">Sign in to your client dashboard.</p>
-        <form onSubmit={submit} className="mt-7 space-y-4" data-testid="login-form">
+        <p className="mt-1.5 text-sm text-foreground/60">Sign in to your dashboard. Use your <span className="font-mono text-foreground">nvplabs@gmail.com</span> Google account for admin access.</p>
+
+        <div className="mt-7 space-y-3">
+          <GoogleSignInButton testid="login-google" />
+        </div>
+        <div className="my-6 flex items-center gap-3">
+          <div className="flex-1 h-px bg-foreground/10" />
+          <span className="text-[10px] uppercase tracking-[0.2em] font-mono text-foreground/40">Or with email</span>
+          <div className="flex-1 h-px bg-foreground/10" />
+        </div>
+
+        <form onSubmit={submit} className="space-y-4" data-testid="login-form">
           <div>
             <label className="text-[10px] uppercase tracking-[0.2em] font-mono text-foreground/55 font-semibold">Email</label>
             <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5 w-full rounded-full bg-foreground/5 border border-foreground/10 px-4 py-2.5 text-sm focus:outline-none focus:border-nvp-red" data-testid="login-email" />
@@ -96,7 +107,17 @@ export function Register() {
         <Link to="/" className="inline-block mb-7"><Logo size="md" /></Link>
         <h1 className="font-display font-bold text-2xl md:text-3xl tracking-tight">Create an account.</h1>
         <p className="mt-1.5 text-sm text-foreground/60">Start your client portal in seconds.</p>
-        <form onSubmit={submit} className="mt-7 space-y-4" data-testid="register-form">
+
+        <div className="mt-7 space-y-3">
+          <GoogleSignInButton label="Sign up with Google" testid="register-google" />
+        </div>
+        <div className="my-6 flex items-center gap-3">
+          <div className="flex-1 h-px bg-foreground/10" />
+          <span className="text-[10px] uppercase tracking-[0.2em] font-mono text-foreground/40">Or with email</span>
+          <div className="flex-1 h-px bg-foreground/10" />
+        </div>
+
+        <form onSubmit={submit} className="space-y-4" data-testid="register-form">
           <div>
             <label className="text-[10px] uppercase tracking-[0.2em] font-mono text-foreground/55 font-semibold">Name</label>
             <input required value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5 w-full rounded-full bg-foreground/5 border border-foreground/10 px-4 py-2.5 text-sm focus:outline-none focus:border-nvp-red" data-testid="register-name" />
