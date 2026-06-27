@@ -57,8 +57,10 @@ def create_refresh_token(user_id: str) -> str:
     return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALGORITHM)
 
 def set_auth_cookies(response: Response, access: str, refresh: str):
-    response.set_cookie("access_token", access, httponly=True, secure=False, samesite="lax", max_age=3600, path="/")
-    response.set_cookie("refresh_token", refresh, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    secure = os.environ.get("COOKIE_SECURE", "false").lower() == "true"
+    samesite = os.environ.get("COOKIE_SAMESITE", "lax").lower()
+    response.set_cookie("access_token", access, httponly=True, secure=secure, samesite=samesite, max_age=3600, path="/")
+    response.set_cookie("refresh_token", refresh, httponly=True, secure=secure, samesite=samesite, max_age=604800, path="/")
 
 # --- App ---
 app = FastAPI(title="NVP Labs API")
@@ -297,7 +299,9 @@ async def refresh_token(request: Request, response: Response):
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         access = create_access_token(user["id"], user["email"], user["role"])
-        response.set_cookie("access_token", access, httponly=True, secure=False, samesite="lax", max_age=3600, path="/")
+        secure = os.environ.get("COOKIE_SECURE", "false").lower() == "true"
+        samesite = os.environ.get("COOKIE_SAMESITE", "lax").lower()
+        response.set_cookie("access_token", access, httponly=True, secure=secure, samesite=samesite, max_age=3600, path="/")
         return {"message": "refreshed"}
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
@@ -664,10 +668,14 @@ async def startup_event():
 # --- App config ---
 app.include_router(api_router)
 
+# CORS: same-origin on Vercel uses no preflight, but we still allow Emergent preview + localhost.
+# Extra origins can be added via CORS_EXTRA_ORIGINS (comma-separated).
+_extra_origins = [o.strip() for o in os.environ.get("CORS_EXTRA_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origin_regex=r"https?://(localhost(:\d+)?|.*\.preview\.emergentagent\.com|.*\.emergentagent\.com)",
+    allow_origins=_extra_origins,
+    allow_origin_regex=r"https?://(localhost(:\d+)?|.*\.preview\.emergentagent\.com|.*\.emergentagent\.com|.*\.vercel\.app)",
     allow_methods=["*"],
     allow_headers=["*"],
 )
